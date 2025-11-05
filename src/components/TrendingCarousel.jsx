@@ -1,52 +1,38 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-const trendingData = [
-  {
-    id: 1,
-    title: 'Emergency Surgery for Ayaan',
-    img: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=1200&auto=format&fit=crop',
-    goal: 15000,
-    raised: 9200,
-    category: 'Medical',
-  },
-  {
-    id: 2,
-    title: 'Scholarships for Girls in STEM',
-    img: 'https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?q=80&w=1200&auto=format&fit=crop',
-    goal: 20000,
-    raised: 11400,
-    category: 'Education',
-  },
-  {
-    id: 3,
-    title: 'Plant 10,000 Mangroves',
-    img: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?q=80&w=1200&auto=format&fit=crop',
-    goal: 12000,
-    raised: 8200,
-    category: 'Environment',
-  },
-  {
-    id: 4,
-    title: 'Shelter for Rescued Dogs',
-    img: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1200&auto=format&fit=crop',
-    goal: 18000,
-    raised: 7600,
-    category: 'Animal Care',
-  },
-  {
-    id: 5,
-    title: 'Relief Kits for Flood Victims',
-    img: 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1200&auto=format&fit=crop',
-    goal: 25000,
-    raised: 16750,
-    category: 'Disaster Relief',
-  },
-];
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export default function TrendingCarousel() {
   const listRef = useRef(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const items = useMemo(() => trendingData, []);
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        const res = await fetch(`${base}/campaigns?trending=true`);
+        if (!res.ok) throw new Error('Failed to load campaigns');
+        const data = await res.json();
+        // Map to ensure required fields exist
+        const mapped = (data || []).map((c) => ({
+          id: c._id || c.id,
+          title: c.title,
+          img: c.image_url || 'https://images.unsplash.com/photo-1529336953121-4a8353b5c47e?q=80&w=1200&auto=format&fit=crop',
+          goal: c.goal || 10000,
+          raised: c.raised || 0,
+          category: c.category || 'General',
+        }));
+        setItems(mapped);
+        setLoading(false);
+      } catch (e) {
+        setError(e.message);
+        setLoading(false);
+      }
+    };
+    fetchTrending();
+  }, []);
 
   const scrollBy = (dir) => {
     const el = listRef.current;
@@ -69,11 +55,23 @@ export default function TrendingCarousel() {
           </div>
         </div>
 
-        <div ref={listRef} className="mt-6 flex gap-6 overflow-x-auto pb-3 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none]" style={{ scrollbarWidth: 'none' }}>
-          {items.map((c) => (
-            <CampaignCard key={c.id} campaign={c} />
-          ))}
-        </div>
+        {loading && (
+          <div className="mt-6 text-slate-500">Loading...</div>
+        )}
+        {error && (
+          <div className="mt-6 text-red-600">{error}</div>
+        )}
+
+        {!loading && !error && (
+          <div ref={listRef} className="mt-6 flex gap-6 overflow-x-auto pb-3 snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none]" style={{ scrollbarWidth: 'none' }}>
+            {items.map((c) => (
+              <CampaignCard key={c.id} campaign={c} />
+            ))}
+            {items.length === 0 && (
+              <div className="text-slate-500">No campaigns yet. Be the first to start a fundraiser!</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -81,7 +79,6 @@ export default function TrendingCarousel() {
 
 function CampaignCard({ campaign }) {
   const pct = Math.min(100, Math.round((campaign.raised / campaign.goal) * 100));
-  const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
   return (
     <div className="min-w-[300px] sm:min-w-[360px] snap-start">

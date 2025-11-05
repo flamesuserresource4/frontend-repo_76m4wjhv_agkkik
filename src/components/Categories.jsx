@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 
-const ALL_CATEGORIES = [
+const FALLBACK_CATEGORIES = [
   'Medical',
   'Education',
   'NGOs',
@@ -19,17 +19,34 @@ const COLORS = {
   'Animal Care': 'from-amber-500 to-orange-500',
   'Disaster Relief': 'from-red-500 to-orange-500',
   'Personal Causes': 'from-violet-500 to-fuchsia-500',
+  General: 'from-slate-500 to-slate-700',
 };
 
 export default function Categories() {
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const [query, setQuery] = useState('');
   const [active, setActive] = useState('All');
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        const res = await fetch(`${base}/categories`);
+        if (!res.ok) throw new Error('Failed to load categories');
+        const data = await res.json();
+        if (Array.isArray(data) && data.length) setCategories(data);
+      } catch (e) {
+        // Fallback already set
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const visible = useMemo(() => {
-    const list = active === 'All' ? ALL_CATEGORIES : ALL_CATEGORIES.filter(c => c === active);
+    const list = active === 'All' ? categories : categories.filter(c => c === active);
     if (!query.trim()) return list;
     return list.filter(c => c.toLowerCase().includes(query.toLowerCase()));
-  }, [active, query]);
+  }, [active, query, categories]);
 
   return (
     <section className="py-16 bg-slate-50">
@@ -55,7 +72,7 @@ export default function Categories() {
               className="px-3 py-2.5 rounded-md border border-slate-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option>All</option>
-              {ALL_CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
@@ -64,7 +81,7 @@ export default function Categories() {
 
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {visible.map((cat) => (
-            <CategoryCard key={cat} title={cat} gradient={COLORS[cat]} />
+            <CategoryCard key={cat} title={cat} gradient={COLORS[cat] || COLORS.General} />
           ))}
         </div>
       </div>
